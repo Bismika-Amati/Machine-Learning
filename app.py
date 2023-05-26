@@ -1,57 +1,38 @@
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 import tensorflow as tf
 from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
-import numpy as np
-
-app = Flask(__name__)
 
 # Load the saved model
 model = tf.keras.models.load_model('model.h5')
 
-# Create a TextVectorization layer
-vectorizer = TextVectorization(max_tokens=10000, output_mode='count')
-vectorizer.adapt([])  # Adapt with an empty list to load the vocabulary
+# Create the Flask app
+app = Flask(__name__)
 
-# API endpoint for prediction
+# Create a TextVectorization layer and adapt it to the training data
+vectorizer = TextVectorization(max_tokens=10000, output_mode='count')
+vectorizer.adapt(X)  # Adapt with the same X used during training
+
 @app.route('/predict', methods=['POST'])
 def predict():
-    data = request.get_json()  # Get input data from the request
-    text = data['text']  # Extract the text from the data
+    # Get the input data from the request
+    data = request.json
+    uraian = data['uraian']
 
-    # Preprocess the input text
-    preprocessed_text = preprocess_text(text)
+    # Preprocess the input data
+    uraian_counts = vectorizer(uraian).numpy()
 
-    # Vectorize the preprocessed text
-    vectorized_text = vectorize_text(preprocessed_text)
+    # Convert the preprocessed data to TensorFlow tensor
+    input_data = tf.convert_to_tensor(uraian_counts, dtype=tf.float32)
 
-    # Make the prediction
-    prediction = make_prediction(vectorized_text)
+    # Make predictions using the loaded model
+    predictions = model.predict(input_data)
 
-    # Create the response
-    response = {
-        'prediction': prediction
-    }
+    # Get the predicted labels
+    predicted_labels = [list(label_mapping.keys())[pred.argmax()] for pred in predictions]
 
+    # Return the predicted labels as the API response
+    response = {'topik': predicted_labels}
     return jsonify(response)
-
-# Preprocess the input text
-def preprocess_text(text):
-    text = text.lower()
-    text = text.replace(r'[^\w\s]+', ' ')
-    text = text.replace(r'_+', ' ')
-    text = text.replace('\s+', ' ', regex=True)
-    return text
-
-# Vectorize the preprocessed text
-def vectorize_text(text):
-    vectorized_text = vectorizer([text]).numpy()
-    return vectorized_text
-
-# Make the prediction
-def make_prediction(vectorized_text):
-    prediction = model.predict(vectorized_text)
-    predicted_class = np.argmax(prediction)
-    return predicted_class
 
 if __name__ == '__main__':
     app.run()
