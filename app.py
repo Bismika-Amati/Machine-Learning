@@ -37,7 +37,7 @@ def predict():
     label_probabilities = predictions[0][top_labels]
 
     # Create a JSON response with the predicted labels and probabilities
-    response = {'   ': []}
+    response = {'predictions': []}
     for label, probability in zip(predicted_labels, label_probabilities):
         response['predictions'].append({'label': label, 'probability': float(probability)})
 
@@ -48,6 +48,7 @@ if __name__ == '__main__':
     # Load the dataset .csv with ',' separator
     data = pd.read_csv('deskripsi_permasalahan.csv', sep=',', low_memory=False)
     df = pd.DataFrame(data)
+    print('Dataframe has successfully created')
 
     # Data cleaning
     input_column = 'Uraian'
@@ -57,11 +58,12 @@ if __name__ == '__main__':
     df[input_column] = df[input_column].str.replace(r'[^\w\s]+', ' ')
     df[input_column] = df[input_column].str.replace(r'_+', ' ')
     df[input_column] = df[input_column].str.replace('\s+', ' ', regex=True)
+    print('Data has successfully cleaned')
 
     # Dividing data into input and output
     x = df.loc[:, input_column]
     y = df.loc[:, output_column]
-    print('Data Divided Successfully Into Input & Output')
+    print('Data divided successfully into input & output')
 
     # Create a TextVectorization layer
     vectorizer = TextVectorization(max_tokens=1904, output_mode='count')
