@@ -28,9 +28,9 @@ jobs:
             git config --global user.name "Bismika Amati"
             git fetch
             git pull origin main --no-rebase
-            sudo docker stop $IMAGE_NAME
-            sudo docker rm $IMAGE_NAME
-            sudo docker rmi $IMAGE_NAME:$IMAGE_TAG
+            # sudo docker stop $IMAGE_NAME
+            # sudo docker rm $IMAGE_NAME
+            # sudo docker rmi $IMAGE_NAME:$IMAGE_TAG
             sudo docker build -t $IMAGE_NAME:$IMAGE_TAG -f Dockerfile .
             sudo docker run \
               --name $IMAGE_NAME \
