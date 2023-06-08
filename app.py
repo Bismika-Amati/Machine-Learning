@@ -1,6 +1,9 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 import pickle
 import re
+import psycopg2
+import uuid
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -12,37 +15,79 @@ with open('model.pkl', 'rb') as f:
 with open('count_vectorizer.pkl', 'rb') as f:
     count_vect = pickle.load(f)
 
+# Database Connection Configuration
+db_config = {
+    'host': '34.101.44.243',
+    'database': 'dev_db',
+    'user': 'postgres',
+    'password': 'oA{-vc.5\LJ=I.mq'
+}
+
+def connect_db():
+    try:
+        conn = psycopg2.connect(**db_config)
+        return conn
+    except psycopg2.Error as error:
+        return None
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    data = request.json
-    text = data['text']
+    # Connect to the database
+    conn = connect_db()
+    if conn is None:
+        error_message = 'Database connection error'
+        response = make_response(jsonify({'error': error_message}), 500)
+        return response
 
-    # Preprocess the input text
-    text = text.lower()
-    text = re.sub(r'[^\w\s]+', ' ', text)
-    text = re.sub(r'_+', ' ', text)
-    text = re.sub('\s+', ' ', text)
+    try:
+        # Request Body
+        data = request.json
+        villageId = data['villageId']
+        text = data['text']
+        createdAt = datetime.now()
+        updatedAt = createdAt
 
-    # Vectorize the input text
-    text_vectorized = count_vect.transform([text]).toarray()
+        # Preprocess the input text
+        text = text.lower()
+        text = re.sub(r'[^\w\s]+', ' ', text)
+        text = re.sub(r'_+', ' ', text)
+        text = re.sub('\s+', ' ', text)
 
-    # Make the prediction
-    predicted_probabilities = model.predict_proba(text_vectorized)[0]
-    top_3_indices = predicted_probabilities.argsort()[-3:][::-1]
-    top_3_classes = model.classes_[top_3_indices]
-    top_3_probabilities = predicted_probabilities[top_3_indices]
+        # Vectorize the input text
+        text_vectorized = count_vect.transform([text]).toarray()
 
-    # Create the response dictionary with top 3 predictions
-    response = {
-        'predictions': [
-            {'class': cls, 'probability': prob}
-            for cls, prob in zip(top_3_classes, top_3_probabilities)
-        ]
-    }
+        # Make the prediction
+        predicted_probabilities = model.predict_proba(text_vectorized)[0]
+        top_3_indices = predicted_probabilities.argsort()[-3:][::-1]
+        top_3_classes = model.classes_[top_3_indices]
+        top_3_probabilities = predicted_probabilities[top_3_indices]
+        predictions_string = ', '.join(top_3_classes)
+        
+        cursor = conn.cursor()
 
-    return jsonify(response)
+        id = str(uuid.uuid4()) 
+        insert_query = "INSERT INTO \"ProblemStatement\" (id, description, \"villageId\", topic, \"createdAt\", \"updatedAt\") VALUES (%s, %s, %s, %s, %s, %s)"
+        data = (id, text, villageId, predictions_string, createdAt, updatedAt)
+        cursor.execute(insert_query, data)
 
+        conn.commit()
+        cursor.close()
+
+        # Create the response dictionary with top 3 predictions
+        response = {
+            'predictions': [
+                {'class': cls, 'probability': prob}
+                for cls, prob in zip(top_3_classes, top_3_probabilities)
+            ]
+        }
+
+        return jsonify(response)
+    except Exception as error:
+        error_message = f"Prediction error: {str(error)}"
+        response = make_response(jsonify({'error': error_message}), 500)
+        return response
+    finally:
+        conn.close()
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+    app.run()
