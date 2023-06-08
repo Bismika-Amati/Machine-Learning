@@ -69,10 +69,11 @@ def predict():
 
         cursor = conn.cursor()
 
-        id = str(uuid.uuid4())
-        insert_query = "INSERT INTO \"ProblemStatement\" (id, description, \"villageId\", topic, \"createdAt\", \"updatedAt\") VALUES (%s, %s, %s, %s, %s, %s)"
-        data = (id, text, villageId, predictions_string, createdAt, updatedAt)
-        cursor.execute(insert_query, data)
+        for topic in top_3_classes:
+            id = str(uuid.uuid4())
+            insert_query = "INSERT INTO \"ProblemStatement\" (id, description, \"villageId\", topic, \"createdAt\", \"updatedAt\") VALUES (%s, %s, %s, %s, %s, %s)"
+            data = (id, text, villageId, topic, createdAt, updatedAt)
+            cursor.execute(insert_query, data)
 
         conn.commit()
         cursor.close()
