@@ -1,0 +1,38 @@
+name: CICD Machine Learning Master
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_push_deploy:
+    name: Build -> Push -> Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on Master
+        uses: appleboy/ssh-action@master
+        env:
+          IMAGE_NAME: ${{ secrets.IMAGE_NAME_MASTER }}
+          IMAGE_TAG: ${{ secrets.IMAGE_TAG_MASTER }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script_stop: true
+          envs: IMAGE_NAME,IMAGE_TAG
+          script: |
+            echo "IMAGE: $IMAGE_NAME:$IMAGE_TAG"
+            cd greenskill-education-machinelearning
+            git config --global user.email "bismika@amati.com"
+            git config --global user.name "Bismika Amati"
+            git fetch
+            git pull origin develop --no-rebase
+            # sudo docker stop $IMAGE_NAME
+            # sudo docker rm $IMAGE_NAME
+            # sudo docker rmi $IMAGE_NAME:$IMAGE_TAG
+            sudo docker build -t $IMAGE_NAME:$IMAGE_TAG -f Dockerfile .
+            sudo docker run \
+              --name $IMAGE_NAME \
+              -p 5000:5000 \
+              -d $IMAGE_NAME:$IMAGE_TAG
