@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, make_response
+from flask_cors import CORS
 import pickle
 import re
 import psycopg2
@@ -6,6 +7,7 @@ import uuid
 from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)
 
 # Load the trained model
 with open('model.pkl', 'rb') as f:
@@ -23,12 +25,14 @@ db_config = {
     'password': 'oA{-vc.5\LJ=I.mq'
 }
 
+
 def connect_db():
     try:
         conn = psycopg2.connect(**db_config)
         return conn
     except psycopg2.Error as error:
         return None
+
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -62,10 +66,10 @@ def predict():
         top_3_classes = model.classes_[top_3_indices]
         top_3_probabilities = predicted_probabilities[top_3_indices]
         predictions_string = ', '.join(top_3_classes)
-        
+
         cursor = conn.cursor()
 
-        id = str(uuid.uuid4()) 
+        id = str(uuid.uuid4())
         insert_query = "INSERT INTO \"ProblemStatement\" (id, description, \"villageId\", topic, \"createdAt\", \"updatedAt\") VALUES (%s, %s, %s, %s, %s, %s)"
         data = (id, text, villageId, predictions_string, createdAt, updatedAt)
         cursor.execute(insert_query, data)
@@ -88,6 +92,7 @@ def predict():
         return response
     finally:
         conn.close()
+
 
 if __name__ == '__main__':
     app.run()
